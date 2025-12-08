@@ -4,15 +4,17 @@ import unittest
 from playwright.async_api import async_playwright
 
 from tools.agent_runner.page_model import build_page_map, collect_clickable_elements
-from tools.agent_runner.run import capture_state, digest_for_action
+from tools.agent_runner.actions import capture_state, digest_for_action
 
 
 class PageCaptureTests(unittest.TestCase):
     def test_build_page_map_basic_structure(self):
         html = "<html><body><a href='/about'>About</a><button>Accept</button></body></html>"
         elements = [
-            {"index": 0, "tag": "a", "text": "About", "ariaLabel": "", "title": "", "alt": "", "role": "", "selector": "a", "parentRef": None},
-            {"index": 1, "tag": "button", "text": "Accept", "ariaLabel": "", "title": "", "alt": "", "role": "", "selector": "button", "parentRef": None},
+            {"index": 0, "tag": "a", "text": "About", "ariaLabel": "", "title": "", "alt": "", "role": "",
+             "selector": "a", "parentRef": None},
+            {"index": 1, "tag": "button", "text": "Accept", "ariaLabel": "", "title": "", "alt": "", "role": "",
+             "selector": "button", "parentRef": None},
         ]
         page_map = build_page_map(html, elements, url="https://example.com", title="Example")
         self.assertIn("digest", page_map)
@@ -37,7 +39,8 @@ class PageCaptureTests(unittest.TestCase):
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page()
-                await page.set_content("<html><body><button aria-label='Close'>X</button><a href='/about'>About</a></body></html>")
+                await page.set_content(
+                    "<html><body><button aria-label='Close'>X</button><a href='/about'>About</a></body></html>")
                 clickables = await collect_clickable_elements(page)
                 self.assertGreaterEqual(len(clickables), 2)
                 # Ensure strategies are populated for targeting
@@ -49,9 +52,12 @@ class PageCaptureTests(unittest.TestCase):
     def test_digest_for_action_prioritizes_cookies_and_nav(self):
         html = "<html><body><a href='/about'>About</a><button>Accept</button><button>Other</button></body></html>"
         elements = [
-            {"index": 0, "tag": "a", "text": "About", "ariaLabel": "", "title": "", "alt": "", "role": "", "selector": "a", "parentRef": None},
-            {"index": 1, "tag": "button", "text": "Accept", "ariaLabel": "", "title": "", "alt": "", "role": "", "selector": "button:nth-of-type(1)", "parentRef": None},
-            {"index": 2, "tag": "button", "text": "Other", "ariaLabel": "", "title": "", "alt": "", "role": "", "selector": "button:nth-of-type(2)", "parentRef": None},
+            {"index": 0, "tag": "a", "text": "About", "ariaLabel": "", "title": "", "alt": "", "role": "",
+             "selector": "a", "parentRef": None},
+            {"index": 1, "tag": "button", "text": "Accept", "ariaLabel": "", "title": "", "alt": "", "role": "",
+             "selector": "button:nth-of-type(1)", "parentRef": None},
+            {"index": 2, "tag": "button", "text": "Other", "ariaLabel": "", "title": "", "alt": "", "role": "",
+             "selector": "button:nth-of-type(2)", "parentRef": None},
         ]
         page_map = build_page_map(html, elements, url="https://example.com", title="Example")
         digest = digest_for_action(page_map, limit=3)

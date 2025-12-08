@@ -1,0 +1,20 @@
+{
+  "user_stories": [
+    {
+      "id": "US-001",
+      "title": "Navigate to Work page",
+      "description": "User can view portfolio",
+      "acceptance_criteria": [
+        "Work page shows projects or case studies"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Navigate to Insights",
+      "description": "User can read articles",
+      "acceptance_criteria": [
+        "Insights page shows blog posts or articles"
+      ]
+    }
+  ]
+}

@@ -1,11 +1,10 @@
+import logging
 import os
 import tempfile
-from typing import Callable
 
 from docx import Document
 from fastapi import HTTPException, UploadFile
 from pypdf import PdfReader
-import logging
 
 logger = logging.getLogger("app.document_loader")
 

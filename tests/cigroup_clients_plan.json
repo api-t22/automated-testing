@@ -29,7 +29,12 @@
       "expected_result": "Clients section content is visible from the About Us path, satisfying the user story acceptance criteria.",
       "priority": "P1",
       "type": "Functional",
-      "tags": ["navigation", "clients", "about-us", "user-story"],
+      "tags": [
+        "navigation",
+        "clients",
+        "about-us",
+        "user-story"
+      ],
       "trace": "US-CI-CLIENTS-001 -> Homepage -> About Us -> Clients"
     }
   ]

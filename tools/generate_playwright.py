@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 from typing import Any, List
 
-
 TEMPLATE = """import {{ test, expect }} from '@playwright/test';
 
 test.describe('{title}', () => {{

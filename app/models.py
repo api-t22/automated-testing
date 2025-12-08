@@ -1,6 +1,18 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+
+class TestData(BaseModel):
+    """Test data for form inputs and verification."""
+    expected_url: Optional[str] = None
+    expected_text: Optional[str] = None
+    expected_failure: Optional[bool] = False  # True for negative tests
+
+    # Dynamic fields for form inputs (username, email, password, etc.)
+
+    class Config:
+        extra = "allow"  # Allows additional fields like username, password, etc.
 
 
 class TestCase(BaseModel):
@@ -14,6 +26,10 @@ class TestCase(BaseModel):
     tags: List[str] = []
     risk: Optional[str] = None
     trace: Optional[str] = None
+    preconditions: List[str] = []
+    negative_cases: List[str] = []
+    test_data: Optional[TestData] = None
+    platform_matrix: Optional[Dict[str, Any]] = None
 
 
 class UserStory(BaseModel):

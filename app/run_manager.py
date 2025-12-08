@@ -62,7 +62,7 @@ class RunManager:
             record.events.append(RunEvent(type=event_type, message=message))
 
     async def _update_status(
-        self, run_id: str, status: str, error: Optional[str] = None
+            self, run_id: str, status: str, error: Optional[str] = None
     ) -> None:
         async with self._lock:
             record = self._runs.get(run_id)

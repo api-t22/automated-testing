@@ -64,7 +64,7 @@ class TestPlanExtractor:
         normalized_stories = []
         for idx, story in enumerate(stories):
             s = dict(story)
-            s.setdefault("id", f"US-{idx+1:03d}")
+            s.setdefault("id", f"US-{idx + 1:03d}")
             s.setdefault("feature", "unspecified")
             s.setdefault("title", "")
             s.setdefault("role", "")
@@ -83,7 +83,7 @@ class TestPlanExtractor:
         normalized_cases = []
         for idx, case in enumerate(cases):
             c = dict(case)
-            c.setdefault("id", f"TC-{idx+1:03d}")
+            c.setdefault("id", f"TC-{idx + 1:03d}")
             c.setdefault("feature", "unspecified")
             c.setdefault("title", "")
             c.setdefault("steps", [])

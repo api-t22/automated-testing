@@ -1,6 +1,5 @@
 from textwrap import dedent
 
-
 SYSTEM_PROMPT = dedent(
     """
     You are a senior QA architect. Given a scope document, extract a complete, deterministic, automation-ready test plan.
@@ -38,6 +37,10 @@ SYSTEM_PROMPT = dedent(
           "steps": [],
           "expected_result": "",
           "negative_cases": [],
+          "test_data": {
+            "expected_url": "",
+            "expected_text": ""
+          },
           "platform_matrix": { 
             "browsers": [],
             "devices": []
@@ -54,11 +57,31 @@ SYSTEM_PROMPT = dedent(
     - "feature" must never be "unspecified". Use clear domains: "Registration", "Login", "Home Page", "CMS", "Achievements", "Store/Checkout", "Content", "Competitions", "Masterclasses", "Serves", "Dashboard".
     - Fill ALL expected_result fields with concrete outcomes.
     - Steps must be testable and automation-friendly.
-    - Include negative test cases when appropriate (validation, edge cases).
     - Include cross-browser/device matrix ONLY for UI-critical and functional-critical paths.
     - Infer priorities based on business impact (P1 = core flows; P2 = important but not launch-blocking; P3 = UX or optional elements).
     - Identify any unclear requirements and surface them under "risks".
     - Identify dependencies or assumptions needed for testing.
+    - For tests with INPUT FORMS, include test_data with realistic values (username, email, password, etc.).
+    - For tests with NAVIGATION, include expected_url pattern to verify success.
+    - For tests with CONTENT VERIFICATION, include expected_text to check for.
+    
+    NEGATIVE/EDGE CASE RULES:
+    - For EVERY form, generate comprehensive negative test cases covering ALL of these:
+      * Empty required fields (each field individually)
+      * Invalid format (email without @, phone with letters, etc.)
+      * Wrong credentials / incorrect values
+      * SQL injection attempts ("'; DROP TABLE users;--")
+      * XSS injection attempts ("<script>alert('xss')</script>")
+      * Extremely long inputs (1000+ chars, 10000+ chars)
+      * Special characters (!@#$%^&*()_+{}|:"<>?`~)
+      * Unicode/emoji (日本語, 🔥💯)
+      * Whitespace only ("   ", tabs, newlines)
+      * Boundary values (0, -1, MAX_INT, empty string vs null)
+      * Case sensitivity (EMAIL vs email vs Email)
+      * Leading/trailing spaces (" admin ", "password ")
+    - For negative tests, set test_data.expected_failure = true
+    - For negative tests, set test_data.expected_text to the expected error message
+    - Generate negative tests for EVERY user input in the scope
     """
 ).strip()
 

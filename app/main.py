@@ -5,15 +5,12 @@ from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, File, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-import json
-import os
-
 from playwright.async_api import async_playwright
 
 from app.config import Settings
+from app.run_manager import run_manager, RunRecord
 from app.services.document_loader import read_text
 from app.services.llm_client import TestPlanExtractor
-from app.run_manager import run_manager, RunRecord
 from tools.generate_playwright import render_spec
 
 logger = logging.getLogger("app")
@@ -40,9 +37,9 @@ def health():
 
 @app.post("/extract-tests")
 async def extract_tests(
-    file: UploadFile = File(...),
-    settings: Settings = Depends(get_settings),
-    include_playwright: bool = Query(False, description="If true, return a Playwright spec alongside the plan."),
+        file: UploadFile = File(...),
+        settings: Settings = Depends(get_settings),
+        include_playwright: bool = Query(False, description="If true, return a Playwright spec alongside the plan."),
 ):
     text = read_text(file)
     logger.info("Received extract request: name=%s chars=%s", file.filename, len(text))
@@ -79,7 +76,7 @@ async def extract_tests(
 
 @app.post("/runs")
 async def start_run(
-    body: Dict[str, Any],
+        body: Dict[str, Any],
 ):
     """
     Start a Playwright run. Expects `spec_path` (path to .spec.ts) and optional `headed` (bool).
@@ -183,6 +180,7 @@ async def preview_stream(websocket: WebSocket, url: str = Query("https://example
                                 await page.mouse.wheel(dx, dy)
                             except Exception:
                                 continue
+
             await asyncio.gather(send_frames(), recv_commands())
         except WebSocketDisconnect:
             pass
@@ -200,4 +198,5 @@ async def preview_stream(websocket: WebSocket, url: str = Query("https://example
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
