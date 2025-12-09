@@ -74,7 +74,7 @@ SYSTEM_PROMPT = dedent(
       * XSS injection attempts ("<script>alert('xss')</script>")
       * Extremely long inputs (1000+ chars, 10000+ chars)
       * Special characters (!@#$%^&*()_+{}|:"<>?`~)
-      * Unicode/emoji (日本語, 🔥💯)
+      * Unicode/emoji (e.g., Japanese characters, emoji)
       * Whitespace only ("   ", tabs, newlines)
       * Boundary values (0, -1, MAX_INT, empty string vs null)
       * Case sensitivity (EMAIL vs email vs Email)

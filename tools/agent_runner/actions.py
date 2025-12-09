@@ -11,13 +11,12 @@ import base64
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
-from playwright.async_api import async_playwright, Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
-from tools.agent_runner.agents.combined_agent import analyze_and_act
-from tools.agent_runner.page_model import build_page_map, collect_clickable_elements, expand_nav_and_collect
+from tools.agent_runner.page_model import collect_clickable_elements
 
 
 # Helpers
@@ -195,7 +194,7 @@ async def capture_state(page: Page) -> Dict[str, Any]:
 
 # Execution helpers
 async def auto_dismiss_popups(page: Page) -> Optional[str]:
-    close_labels = ["close", "dismiss", "no thanks", "x", "✕"]
+    close_labels = ["close", "dismiss", "no thanks", "x"]
     accept_labels = ["accept", "allow all", "agree", "got it", "yes", "consent"]
     for text in close_labels + accept_labels:
         try:
@@ -393,6 +392,35 @@ async def apply_action(page: Page, action: Dict[str, Any], elements: List[Dict[s
                         await click_with_fallback(page, child, hover_first=False)
             else:
                 await click_with_fallback(page, child, hover_first=False)
+        return True
+
+    # SELECT_OPTION ACTION: Handle dropdowns
+    if name == "select_option":
+        target = elements[primary] if primary is not None and 0 <= primary < len(elements) else None
+        if not target:
+            raise RuntimeError("No target for select_option action")
+        
+        selector = target.get("selector")
+        option_value = value or ""
+        
+        print(f"DEBUG: Selecting option '{option_value}' in element ref {primary}")
+        
+        try:
+            if selector:
+                # Try selecting by label first (most common/human way), then value, then index
+                try:
+                    await page.locator(selector).select_option(label=option_value, timeout=2000)
+                except Exception:
+                    try:
+                        await page.locator(selector).select_option(value=option_value, timeout=2000)
+                    except Exception:
+                        await page.locator(selector).select_option(index=int(option_value))
+            else:
+                 raise RuntimeError("No selector for select element")
+        except Exception as e:
+            print(f"DEBUG: Javascript fallback for select due to: {e}")
+            # Fallback: force setting value via JS
+            await page.evaluate(f"(val) => {{ const el = document.querySelector('{selector}'); if(el) {{ el.value = val; el.dispatchEvent(new Event('change')); }} }}", option_value)
         return True
 
     # TYPE ACTION: Fill input fields with text
@@ -665,4 +693,3 @@ async def handle_action_error(page: Page, error: Exception, attempt: int) -> Non
         except Exception:
             pass
     await page.wait_for_timeout(min(800 + attempt * 100, 2000))
-

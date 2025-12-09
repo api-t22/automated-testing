@@ -1,17 +1,26 @@
 {
-  "document_title": "SauceDemo E-Commerce Test (No Anti-Bot)",
-  "summary": "User story: As a shopper, I want to login, browse products, add to cart, and checkout.",
+  "document_title": "SauceDemo E-Commerce Smoke Plan",
+  "summary": "Automation-ready plan for SauceDemo covering login, product selection, cart review, checkout, and order completion with standard_user credentials.",
   "user_stories": [
     {
       "id": "US-SAUCE-001",
-      "as_a": "Online shopper testing the demo store",
-      "i_want": "to complete a full purchase flow",
-      "so_that": "I can verify the e-commerce functionality works",
+      "feature": "Checkout",
+      "title": "Complete a purchase as a standard user",
+      "role": "shopper",
+      "goal": "log in, add a product to the cart, and finish checkout",
+      "benefit": "verify the end-to-end e-commerce flow works",
       "acceptance_criteria": [
-        "Login with valid credentials",
-        "Browse and select products",
-        "Add items to cart",
-        "Complete checkout process"
+        "I can log in with standard_user / secret_sauce and reach the inventory page",
+        "I can add at least one product (Sauce Labs Backpack) to the cart and see it there",
+        "I can enter shipping details and reach the checkout overview",
+        "I can complete the order and see a confirmation message"
+      ],
+      "related_test_ids": [
+        "TC-SAUCE-001",
+        "TC-SAUCE-002",
+        "TC-SAUCE-003",
+        "TC-SAUCE-004",
+        "TC-SAUCE-005"
       ]
     }
   ],
@@ -19,116 +28,185 @@
     {
       "id": "TC-SAUCE-001",
       "feature": "Authentication",
-      "title": "Login with standard user",
-      "user_story_id": "US-SAUCE-001",
-      "steps": [
-        "Enter username in the username field",
-        "Enter password in the password field",
-        "Click the Login button"
-      ],
-      "expected_result": "User is logged in and sees product inventory",
+      "title": "Login with standard_user succeeds",
+      "type": "functional",
       "priority": "P1",
-      "type": "Functional",
       "tags": [
         "login",
         "auth"
       ],
+      "trace": "Basic login flow must allow standard_user to view products.",
+      "preconditions": [],
+      "steps": [
+        "Navigate to https://www.saucedemo.com/",
+        "Enter username standard_user",
+        "Enter password secret_sauce",
+        "Click the Login button"
+      ],
+      "expected_result": "User is authenticated and redirected to the inventory page.",
+      "negative_cases": [],
       "test_data": {
         "username": "standard_user",
         "password": "secret_sauce",
         "expected_url": "/inventory"
+      },
+      "platform_matrix": {
+        "browsers": [
+          "chrome"
+        ],
+        "devices": [
+          "desktop"
+        ]
       }
     },
     {
       "id": "TC-SAUCE-002",
       "feature": "Product Selection",
-      "title": "Add backpack to cart",
-      "user_story_id": "US-SAUCE-001",
-      "steps": [
-        "Find the Sauce Labs Backpack product",
-        "Click Add to Cart button for the backpack",
-        "Verify cart badge shows 1 item"
-      ],
-      "expected_result": "Backpack is added to cart",
+      "title": "Add Sauce Labs Backpack to cart",
+      "type": "functional",
       "priority": "P1",
-      "type": "Functional",
       "tags": [
         "product",
         "cart"
       ],
+      "trace": "Core add-to-cart flow for primary catalog item.",
+      "preconditions": [
+        "User is logged in"
+      ],
+      "steps": [
+        "Ensure user is on the inventory page",
+        "Locate product 'Sauce Labs Backpack'",
+        "Click 'Add to cart' for the backpack",
+        "Verify cart badge shows 1 item"
+      ],
+      "expected_result": "Backpack is added to cart and cart badge increments to 1.",
+      "negative_cases": [],
       "test_data": {
         "expected_text": "Remove"
+      },
+      "platform_matrix": {
+        "browsers": [
+          "chrome"
+        ],
+        "devices": [
+          "desktop"
+        ]
       }
     },
     {
       "id": "TC-SAUCE-003",
       "feature": "Shopping Cart",
-      "title": "View cart contents",
-      "user_story_id": "US-SAUCE-001",
-      "steps": [
-        "Click on the shopping cart icon",
-        "Verify cart page shows the added item",
-        "Confirm item name and price are visible"
-      ],
-      "expected_result": "Cart displays backpack with correct details",
+      "title": "View cart and confirm item details",
+      "type": "functional",
       "priority": "P1",
-      "type": "Functional",
       "tags": [
         "cart",
         "review"
       ],
+      "trace": "Cart review before checkout.",
+      "preconditions": [
+        "Item added to cart"
+      ],
+      "steps": [
+        "Click on the shopping cart icon",
+        "Confirm cart page displays the added backpack",
+        "Verify item name and price are visible"
+      ],
+      "expected_result": "Cart shows Sauce Labs Backpack with correct price and quantity 1.",
+      "negative_cases": [],
       "test_data": {
-        "expected_url": "/cart",
+        "expected_url": "/cart.html",
         "expected_text": "Sauce Labs Backpack"
+      },
+      "platform_matrix": {
+        "browsers": [
+          "chrome"
+        ],
+        "devices": [
+          "desktop"
+        ]
       }
     },
     {
       "id": "TC-SAUCE-004",
       "feature": "Checkout",
       "title": "Enter shipping information",
-      "user_story_id": "US-SAUCE-001",
-      "steps": [
-        "Click Checkout button",
-        "Fill in First Name field",
-        "Fill in Last Name field",
-        "Fill in Postal Code field",
-        "Click Continue button",
-        "Stop at the Checkout: Overview page"
-      ],
-      "expected_result": "Checkout proceeds to order overview",
+      "type": "functional",
       "priority": "P1",
-      "type": "Functional",
       "tags": [
         "checkout",
         "form"
       ],
+      "trace": "Checkout Step One collects shipping details.",
+      "preconditions": [
+        "User is in cart"
+      ],
+      "steps": [
+        "From cart page, click Checkout",
+        "Fill First Name with John",
+        "Fill Last Name with Doe",
+        "Fill Postal Code with 12345",
+        "Click Continue to proceed to overview",
+        "Stop at the Checkout: Overview page"
+      ],
+      "expected_result": "Checkout advances to overview page with order summary displayed.",
+      "negative_cases": [],
       "test_data": {
         "first_name": "John",
         "last_name": "Doe",
         "postal_code": "12345",
         "expected_url": "/checkout-step-two"
+      },
+      "platform_matrix": {
+        "browsers": [
+          "chrome"
+        ],
+        "devices": [
+          "desktop"
+        ]
       }
     },
     {
       "id": "TC-SAUCE-005",
       "feature": "Order Completion",
-      "title": "Finish the order",
-      "user_story_id": "US-SAUCE-001",
-      "steps": [
-        "Review the order summary",
-        "Click Finish button to complete order",
-        "Verify order confirmation message"
-      ],
-      "expected_result": "Order is complete with thank you message",
+      "title": "Finish order and see confirmation",
+      "type": "functional",
       "priority": "P1",
-      "type": "Functional",
       "tags": [
         "checkout",
         "complete"
       ],
+      "trace": "Checkout Step Two confirms purchase.",
+      "preconditions": [
+        "User is on checkout overview"
+      ],
+      "steps": [
+        "Review checkout overview items and totals",
+        "Click Finish to place the order",
+        "Observe order confirmation page/message"
+      ],
+      "expected_result": "Order completes and displays thank you/confirmation message.",
+      "negative_cases": [],
       "test_data": {
         "expected_text": "Thank you for your order"
+      },
+      "platform_matrix": {
+        "browsers": [
+          "chrome"
+        ],
+        "devices": [
+          "desktop"
+        ]
       }
     }
+  ],
+  "assumptions": [
+    "Standard SauceDemo credentials (standard_user / secret_sauce) remain valid.",
+    "Environment has no anti-bot or additional auth challenges enabled.",
+    "Inventory and checkout flows remain at default demo configuration."
+  ],
+  "risks": [
+    "If site rate-limits or introduces CAPTCHAs, automated login will fail.",
+    "UI element text may change (e.g., button labels) impacting selectors and expectations."
   ]
 }

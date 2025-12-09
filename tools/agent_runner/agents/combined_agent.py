@@ -46,15 +46,17 @@ async def analyze_and_act(
         - Do NOT click cookie/consent links (tag=a) - those are informational pages.
         - Use hover_click for dropdown nav menus.
         - Use "type" to fill input fields (forms, search boxes).
+        - Use "select_option" to select from dropdowns (select tags).
         - Use "solve_image_captcha" for distorted text captchas.
         - Prefer nav refs that match the goal keywords.
+        - REMOVAL CHECK: If you clicked "Remove" and the button changed to "Add to cart", the item is removed. Goal complete.
         
         Return JSON only:
         {
-          "action": "click" | "hover_click" | "type" | "solve_image_captcha" | "done",
+          "action": "click" | "hover_click" | "type" | "select_option" | "solve_image_captcha" | "done",
           "primary_ref": <number or null>,
           "secondary_ref": <number or null>,
-          "value": "<text to type if action=type>",
+          "value": "<text to type/select if action=type/select_option>",
           "notes": "<brief reasoning>"
         }
         """
@@ -102,9 +104,9 @@ Decide the single best action to progress toward the goal."""
             if attempt < max_retries - 1:
                 import asyncio
                 wait_time = (attempt + 1) * 2  # 2s, 4s, 6s
-                print(f"  ⚠️ LLM API retry {attempt + 1}/{max_retries} after {wait_time}s...")
+                print(f"  LLM API retry {attempt + 1}/{max_retries} after {wait_time}s...")
                 await asyncio.sleep(wait_time)
             else:
-                print(f"  ❌ LLM API failed after {max_retries} attempts: {last_error}")
+                print(f"  LLM API failed after {max_retries} attempts: {last_error}")
                 # Return a safe fallback action
                 return {"action": "done", "notes": f"LLM API error: {str(last_error)[:50]}"}

@@ -3,8 +3,8 @@ import unittest
 
 from playwright.async_api import async_playwright
 
-from tools.agent_runner.page_model import build_page_map, collect_clickable_elements
 from tools.agent_runner.actions import capture_state, digest_for_action
+from tools.agent_runner.page_model import build_page_map, collect_clickable_elements
 
 
 class PageCaptureTests(unittest.TestCase):

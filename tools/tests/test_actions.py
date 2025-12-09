@@ -4,8 +4,8 @@ import sys
 
 from playwright.async_api import async_playwright
 
-from tools.agent_runner.page_model import collect_clickable_elements, expand_nav_and_collect
 from tools.agent_runner.actions import apply_action
+from tools.agent_runner.page_model import collect_clickable_elements, expand_nav_and_collect
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

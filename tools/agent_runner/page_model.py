@@ -191,7 +191,8 @@ async def collect_clickable_elements(page):
       }
       function walk(root) {
         const results = [];
-        const nodes = root.querySelectorAll("a, button, [role='button'], input, [tabindex], img");
+        // Added 'select' to the query selector
+        const nodes = root.querySelectorAll("a, button, [role='button'], input, select, [tabindex], img");
         nodes.forEach((el) => {
           if (!isVisible(el)) return;
           const rect = el.getBoundingClientRect();
@@ -201,6 +202,19 @@ async def collect_clickable_elements(page):
           const role = (el.getAttribute("role") || "").trim();
           const alt = (el.getAttribute("alt") || "").trim();
           const dataTestId = el.getAttribute("data-testid") || el.getAttribute("data-test") || "";
+          
+          // Helper to capture select options text if it's a select
+          let extraInfo = "";
+          if (el.tagName.toLowerCase() === "select") {
+             const options = Array.from(el.options).map(o => o.text).join(", ");
+             extraInfo = `Options: ${options}`;
+          } else if (el.tagName.toLowerCase() === "input" || el.tagName.toLowerCase() === "textarea") {
+             const val = el.value;
+             if (val && val.length > 0) {
+                 extraInfo = `CurrentValue: '${val}'`;
+             }
+          }
+
           const toPath = (node) => {
             const parts = [];
             let cur = node;
@@ -221,10 +235,11 @@ async def collect_clickable_elements(page):
           if (role && text) strategies.push({ type: "role", value: { role, name: text } });
           if (text) strategies.push({ type: "text", value: text.slice(0, 100) });
           if (cssPath) strategies.push({ type: "css", value: cssPath });
+          
           results.push({
             index: results.length,
             tag: el.tagName.toLowerCase(),
-            text,
+            text: extraInfo ? (text + " " + extraInfo) : text,
             ariaLabel: aria,
             title,
             alt,

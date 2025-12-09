@@ -1,0 +1,1002 @@
+{
+    "document_title": "SauceDemo E-Commerce Site - Automation-Ready Test Plan",
+    "summary": "Automation-focused test plan for the SauceDemo e-commerce demo site covering login, inventory dashboard, cart management, checkout flow, security, and form validation.",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "feature": "Login",
+            "title": "Login with valid credentials",
+            "role": "shopper",
+            "goal": "log in with valid credentials",
+            "benefit": "access the product inventory and complete purchases",
+            "acceptance_criteria": [
+                "Login page is accessible at the base URL.",
+                "Username and password fields and Login button are visible and enabled.",
+                "Providing valid username and password signs the user in.",
+                "On successful login, user is redirected to the inventory dashboard.",
+                "Header displays application title indicating authenticated area.",
+                "Browser refresh after login keeps the user authenticated."
+            ],
+            "related_test_ids": [
+                "TC-001",
+                "TC-002",
+                "TC-018"
+            ]
+        },
+        {
+            "id": "US-002",
+            "feature": "Login",
+            "title": "See clear login error messages",
+            "role": "shopper",
+            "goal": "understand why login failed when credentials or inputs are invalid",
+            "benefit": "quickly correct mistakes and successfully sign in",
+            "acceptance_criteria": [
+                "Empty username shows a specific ‘Username is required’ error message.",
+                "Empty password shows a specific ‘Password is required’ error message.",
+                "Invalid username or password shows a ‘Username and password do not match’ error message.",
+                "Locked-out users see a clear ‘user has been locked out’ message.",
+                "User stays on the login page after failed login attempts.",
+                "Error messages disappear when the cause is corrected and login succeeds."
+            ],
+            "related_test_ids": [
+                "TC-003",
+                "TC-004",
+                "TC-005",
+                "TC-006",
+                "TC-007",
+                "TC-008",
+                "TC-009",
+                "TC-010",
+                "TC-011",
+                "TC-012",
+                "TC-013",
+                "TC-014",
+                "TC-015",
+                "TC-016"
+            ]
+        },
+        {
+            "id": "US-003",
+            "feature": "Dashboard",
+            "title": "Browse and sort products",
+            "role": "shopper",
+            "goal": "view and organize the inventory list",
+            "benefit": "quickly find products of interest",
+            "acceptance_criteria": [
+                "Inventory page lists all available products with name, image, description, and price.",
+                "Sorting by name A to Z and Z to A updates the list order correctly.",
+                "Sorting by price low to high and high to low updates the list order correctly.",
+                "Product images and prices render correctly for each product.",
+                "Clicking a product navigates to its detail page.",
+                "Browser back navigation returns to the inventory page with previous sort preserved."
+            ],
+            "related_test_ids": [
+                "TC-018",
+                "TC-019",
+                "TC-020",
+                "TC-023"
+            ]
+        },
+        {
+            "id": "US-004",
+            "feature": "Store/Checkout",
+            "title": "Manage cart from inventory and product detail",
+            "role": "shopper",
+            "goal": "add and remove items in the cart from different pages",
+            "benefit": "control what will be purchased before checkout",
+            "acceptance_criteria": [
+                "Clicking ‘Add to cart’ on inventory adds the item and updates cart badge count.",
+                "Clicking ‘Remove’ on inventory removes the item and updates cart badge count.",
+                "Cart page displays all selected items with quantity and price.",
+                "Items can be removed directly from the cart page.",
+                "Cart badge count matches the number of items in the cart.",
+                "Cart content remains consistent when adding or removing from product detail pages."
+            ],
+            "related_test_ids": [
+                "TC-021",
+                "TC-022",
+                "TC-024",
+                "TC-025",
+                "TC-026",
+                "TC-027"
+            ]
+        },
+        {
+            "id": "US-005",
+            "feature": "Store/Checkout",
+            "title": "Cart persistence across sessions",
+            "role": "shopper",
+            "goal": "retain cart contents across page refresh and re-login",
+            "benefit": "avoid losing selected products accidentally",
+            "acceptance_criteria": [
+                "Refreshing the inventory page does not clear items already in the cart.",
+                "Refreshing the cart page does not clear items already in the cart.",
+                "Logging out and logging back in as the same user preserves the cart contents.",
+                "Cart badge count remains consistent with cart contents after refresh.",
+                "Completing a checkout clears the cart and resets the badge count.",
+                "Reset App State clears cart contents for the current user."
+            ],
+            "related_test_ids": [
+                "TC-028",
+                "TC-032",
+                "TC-047"
+            ]
+        },
+        {
+            "id": "US-006",
+            "feature": "Store/Checkout",
+            "title": "Complete checkout with valid shipping details",
+            "role": "shopper",
+            "goal": "enter shipping details and place an order",
+            "benefit": "successfully complete an e-commerce transaction",
+            "acceptance_criteria": [
+                "Starting checkout from the cart navigates to a shipping information form.",
+                "Shipping form requires first name, last name, and postal code fields.",
+                "Valid shipping data leads to the order overview page.",
+                "Order overview shows selected items, prices, totals, and tax where applicable.",
+                "Finishing checkout shows a clear success message and confirmation page.",
+                "After successful checkout, cart is emptied and user can start a new purchase."
+            ],
+            "related_test_ids": [
+                "TC-029",
+                "TC-030",
+                "TC-031",
+                "TC-032"
+            ]
+        },
+        {
+            "id": "US-007",
+            "feature": "Store/Checkout",
+            "title": "Validate checkout shipping form inputs",
+            "role": "shopper",
+            "goal": "receive clear feedback when shipping inputs are invalid",
+            "benefit": "correct data entry issues before the order is placed",
+            "acceptance_criteria": [
+                "Empty first name field prevents progression and shows a clear error.",
+                "Empty last name field prevents progression and shows a clear error.",
+                "Empty postal code prevents progression and shows a clear error.",
+                "Clearly invalid postal code formats are rejected with an error message.",
+                "Malicious or extreme inputs (SQL/XSS/very long strings) do not break the application and show generic validation errors.",
+                "Whitespace-only or padded values are trimmed or rejected according to validation rules."
+            ],
+            "related_test_ids": [
+                "TC-033",
+                "TC-034",
+                "TC-035",
+                "TC-036",
+                "TC-037",
+                "TC-038",
+                "TC-039",
+                "TC-040",
+                "TC-041",
+                "TC-042",
+                "TC-043",
+                "TC-044"
+            ]
+        },
+        {
+            "id": "US-008",
+            "feature": "Login",
+            "title": "Protect authenticated areas and allow logout",
+            "role": "shopper",
+            "goal": "ensure only logged-in users can access inventory and checkout, and allow secure logout",
+            "benefit": "keep account and shopping data private",
+            "acceptance_criteria": [
+                "Direct navigation to inventory page without login shows an access error.",
+                "Direct navigation to checkout or cart without login redirects to login or shows an error.",
+                "Logout option is available from the authenticated area menu.",
+                "Logging out returns the user to the login page.",
+                "After logout, attempting to use back navigation to access inventory requires login again.",
+                "Reset App State option is available and clears current session data such as cart contents."
+            ],
+            "related_test_ids": [
+                "TC-017",
+                "TC-045",
+                "TC-046",
+                "TC-047"
+            ]
+        },
+        {
+            "id": "US-009",
+            "feature": "Dashboard",
+            "title": "View site on multiple browsers and devices",
+            "role": "shopper",
+            "goal": "use the site on common desktop and mobile browsers",
+            "benefit": "shop from different devices without functional issues",
+            "acceptance_criteria": [
+                "Core flows (login, add to cart, checkout) work on major desktop browsers.",
+                "Core flows work on popular mobile and tablet viewport sizes.",
+                "Product grid and cart layouts remain usable without horizontal scrolling on supported devices.",
+                "Buttons and links are tappable/clickable on touch devices.",
+                "Text remains readable at default zoom across supported devices.",
+                "No critical layout overlaps or broken UI elements appear on supported browsers."
+            ],
+            "related_test_ids": [
+                "TC-002",
+                "TC-018",
+                "TC-029",
+                "TC-032",
+                "TC-048"
+            ]
+        }
+    ],
+    "test_cases": [
+        {
+            "id": "TC-001",
+            "feature": "Login",
+            "title": "Verify login page UI elements",
+            "type": "ui",
+            "priority": "P2",
+            "steps": [
+                "Navigate to https://www.saucedemo.com/",
+                "Verify presence of username, password, login button"
+            ],
+            "expected_result": "Login page elements are visible.",
+            "test_data": {
+                "expected_text": "Swag Labs"
+            }
+        },
+        {
+            "id": "TC-002",
+            "feature": "Login",
+            "title": "Login with valid standard_user",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Enter standard_user",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Redirected to inventory.",
+            "test_data": {
+                "expected_url": "/inventory.html"
+            }
+        },
+        {
+            "id": "TC-003",
+            "feature": "Login",
+            "title": "Login with empty username",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Leave username empty",
+                "Enter password secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Error: Username is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "Username is required"
+            }
+        },
+        {
+            "id": "TC-004",
+            "feature": "Login",
+            "title": "Login with empty password",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Enter standard_user",
+                "Leave password empty",
+                "Click Login"
+            ],
+            "expected_result": "Error: Password is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "Password is required"
+            }
+        },
+        {
+            "id": "TC-005",
+            "feature": "Login",
+            "title": "Login with both empty",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Leave both empty",
+                "Click Login"
+            ],
+            "expected_result": "Error: Username is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "Username is required"
+            }
+        },
+        {
+            "id": "TC-006",
+            "feature": "Login",
+            "title": "Login with invalid credentials",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Enter invalid_user",
+                "Enter wrong_password",
+                "Click Login"
+            ],
+            "expected_result": "Error: do not match",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-007",
+            "feature": "Login",
+            "title": "Login with locked_out_user",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Enter locked_out_user",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Error: locked out",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "locked out"
+            }
+        },
+        {
+            "id": "TC-008",
+            "feature": "Login",
+            "title": "Login with SQL injection in username",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter ' OR 1=1;--",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed (no SQL error)",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-009",
+            "feature": "Login",
+            "title": "Login with XSS in username",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter <script>alert('xss')</script>",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed (no alert)",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-010",
+            "feature": "Login",
+            "title": "Login with long username",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter 1000 chars username",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed gracefully",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-011",
+            "feature": "Login",
+            "title": "Login with special chars",
+            "type": "negative",
+            "priority": "P3",
+            "steps": [
+                "Enter !@#$%^&*",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-012",
+            "feature": "Login",
+            "title": "Login with Unicode",
+            "type": "negative",
+            "priority": "P3",
+            "steps": [
+                "Enter 🐛",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-013",
+            "feature": "Login",
+            "title": "Login with whitespace username",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter '   '",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Error: Username is required (or fail)",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-014",
+            "feature": "Login",
+            "title": "Login with numeric boundary",
+            "type": "negative",
+            "priority": "P3",
+            "steps": [
+                "Enter 0",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-015",
+            "feature": "Login",
+            "title": "Login case sensitivity",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter STANDARD_USER",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed (if sensitive)",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-016",
+            "feature": "Login",
+            "title": "Login with leading spaces",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter ' standard_user '",
+                "Enter secret_sauce",
+                "Click Login"
+            ],
+            "expected_result": "Login failed (no trim)",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "do not match"
+            }
+        },
+        {
+            "id": "TC-017",
+            "feature": "Dashboard",
+            "title": "Direct access to inventory protection",
+            "type": "security",
+            "priority": "P1",
+            "steps": [
+                "Logout if logged in",
+                "Navigate directly to /inventory.html"
+            ],
+            "expected_result": "Error: You can only access '/inventory.html' when you are logged in.",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "logged in"
+            }
+        },
+        {
+            "id": "TC-018",
+            "feature": "Dashboard",
+            "title": "Inventory list display",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Login",
+                "Verify products list"
+            ],
+            "expected_result": "Products displayed.",
+            "test_data": {
+                "expected_text": "Products"
+            }
+        },
+        {
+            "id": "TC-019",
+            "feature": "Dashboard",
+            "title": "Sort by Name",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Login",
+                "Select Name (Z to A)",
+                "Verify order"
+            ],
+            "expected_result": "Sorted Z-A.",
+            "test_data": {
+                "expected_text": "Test.allTheThings() T-Shirt (Red)"
+            }
+        },
+        {
+            "id": "TC-020",
+            "feature": "Dashboard",
+            "title": "Sort by Price",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Login",
+                "Select Price (low to high)",
+                "Verify order"
+            ],
+            "expected_result": "Lowest price first ($7.99).",
+            "test_data": {
+                "expected_text": "Sauce Labs Onesie"
+            }
+        },
+        {
+            "id": "TC-021",
+            "feature": "Cart",
+            "title": "Add to cart from inventory",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Login",
+                "Click Add to Cart on Backpack",
+                "Verify badge 1"
+            ],
+            "expected_result": "Badge 1.",
+            "test_data": {
+                "expected_text": "1"
+            }
+        },
+        {
+            "id": "TC-022",
+            "feature": "Cart",
+            "title": "Remove from inventory",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Add to cart",
+                "Click Remove",
+                "Verify badge empty"
+            ],
+            "expected_result": "Badge empty.",
+            "test_data": {
+                "expected_text": "Add to cart"
+            }
+        },
+        {
+            "id": "TC-023",
+            "feature": "Content",
+            "title": "Product detail navigation",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Click Backpack title",
+                "Verify detail page"
+            ],
+            "expected_result": "Detail page loaded.",
+            "test_data": {
+                "expected_url": "-item.html"
+            }
+        },
+        {
+            "id": "TC-024",
+            "feature": "Cart",
+            "title": "Add from detail page",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Go to detail page",
+                "Click Add to Cart"
+            ],
+            "expected_result": "Attributes added.",
+            "test_data": {
+                "expected_text": "Remove"
+            }
+        },
+        {
+            "id": "TC-025",
+            "feature": "Cart",
+            "title": "Remove from detail page",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Add to cart",
+                "Go to detail",
+                "Click Remove"
+            ],
+            "expected_result": "Removed.",
+            "test_data": {
+                "expected_text": "Add to cart"
+            }
+        },
+        {
+            "id": "TC-026",
+            "feature": "Cart",
+            "title": "View cart contents",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Add item",
+                "Go to cart",
+                "Verify item listed"
+            ],
+            "expected_result": "Item in cart.",
+            "test_data": {
+                "expected_url": "/cart.html"
+            }
+        },
+        {
+            "id": "TC-027",
+            "feature": "Cart",
+            "title": "Remove from cart page",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Add item",
+                "Go to cart",
+                "Click Remove"
+            ],
+            "expected_result": "Item gone.",
+            "test_data": {
+                "expected_text": "Your Cart"
+            }
+        },
+        {
+            "id": "TC-028",
+            "feature": "Cart",
+            "title": "Cart persistence logout/login",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Add item",
+                "Logout",
+                "Login",
+                "Verify cart"
+            ],
+            "expected_result": "Item still in cart.",
+            "test_data": {
+                "expected_text": "1"
+            }
+        },
+        {
+            "id": "TC-029",
+            "feature": "Checkout",
+            "title": "Start checkout",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Go to cart",
+                "Click Checkout"
+            ],
+            "expected_result": "Step One loaded.",
+            "test_data": {
+                "expected_url": "/checkout-step-one.html"
+            }
+        },
+        {
+            "id": "TC-030",
+            "feature": "Checkout",
+            "title": "Submit valid shipping info",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Enter John, Doe, 12345",
+                "Click Continue"
+            ],
+            "expected_result": "Step Two loaded.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-031",
+            "feature": "Checkout",
+            "title": "Verify order summary",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Proceed to Step Two",
+                "Verify total"
+            ],
+            "expected_result": "Summary visible.",
+            "test_data": {
+                "expected_text": "Total:"
+            }
+        },
+        {
+            "id": "TC-032",
+            "feature": "Checkout",
+            "title": "Complete checkout",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Click Finish"
+            ],
+            "expected_result": "Completion page.",
+            "test_data": {
+                "expected_text": "THANK YOU FOR YOUR ORDER"
+            }
+        },
+        {
+            "id": "TC-033",
+            "feature": "Checkout",
+            "title": "Checkout empty First Name",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Leave First Name empty",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Error: First Name is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "First Name is required"
+            }
+        },
+        {
+            "id": "TC-034",
+            "feature": "Checkout",
+            "title": "Checkout empty Last Name",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Fill First Name",
+                "Leave Last Name empty",
+                "Click Continue"
+            ],
+            "expected_result": "Error: Last Name is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "Last Name is required"
+            }
+        },
+        {
+            "id": "TC-035",
+            "feature": "Checkout",
+            "title": "Checkout empty Postal Code",
+            "type": "negative",
+            "priority": "P1",
+            "steps": [
+                "Fill Names",
+                "Leave Postal Code empty",
+                "Click Continue"
+            ],
+            "expected_result": "Error: Postal Code is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "Postal Code is required"
+            }
+        },
+        {
+            "id": "TC-036",
+            "feature": "Checkout",
+            "title": "Checkout invalid Postal Code",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Fill Names",
+                "Enter ABCDE",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted or Error (SauceDemo actually accepts anything, but we test behavior)",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-037",
+            "feature": "Checkout",
+            "title": "Checkout SQLi in First Name",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter ' OR 1=1",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted sanitized.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-038",
+            "feature": "Checkout",
+            "title": "Checkout XSS in Last Name",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter <script>",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted sanitized.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-039",
+            "feature": "Checkout",
+            "title": "Checkout long strings",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter 1000 chars",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-040",
+            "feature": "Checkout",
+            "title": "Checkout special chars",
+            "type": "negative",
+            "priority": "P3",
+            "steps": [
+                "Enter !@#$",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-041",
+            "feature": "Checkout",
+            "title": "Checkout Unicode",
+            "type": "negative",
+            "priority": "P3",
+            "steps": [
+                "Enter 🐛",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-042",
+            "feature": "Checkout",
+            "title": "Checkout whitespace First Name",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter '   '",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Error: First Name is required",
+            "test_data": {
+                "expected_failure": true,
+                "expected_text": "First Name is required"
+            }
+        },
+        {
+            "id": "TC-043",
+            "feature": "Checkout",
+            "title": "Checkout numeric boundary zip",
+            "type": "negative",
+            "priority": "P3",
+            "steps": [
+                "Enter 00000",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-044",
+            "feature": "Checkout",
+            "title": "Checkout leading spaces",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Enter ' John '",
+                "Fill others",
+                "Click Continue"
+            ],
+            "expected_result": "Accepted.",
+            "test_data": {
+                "expected_url": "/checkout-step-two.html"
+            }
+        },
+        {
+            "id": "TC-045",
+            "feature": "Cart",
+            "title": "Checkout with empty cart",
+            "type": "negative",
+            "priority": "P2",
+            "steps": [
+                "Reset State",
+                "Go to cart",
+                "Click Checkout"
+            ],
+            "expected_result": "Blocked or Error (SauceDemo might allow empty checkout, but this tests it)",
+            "test_data": {
+                "expected_text": "Cart is empty"
+            }
+        },
+        {
+            "id": "TC-046",
+            "feature": "Login",
+            "title": "Logout",
+            "type": "functional",
+            "priority": "P1",
+            "steps": [
+                "Login",
+                "Open Menu",
+                "Click Logout"
+            ],
+            "expected_result": "Redirect to login.",
+            "test_data": {
+                "expected_url": "/"
+            }
+        },
+        {
+            "id": "TC-047",
+            "feature": "Cart",
+            "title": "Reset App State",
+            "type": "functional",
+            "priority": "P2",
+            "steps": [
+                "Add item",
+                "Open Menu",
+                "Click Reset App State",
+                "Verify cart empty"
+            ],
+            "expected_result": "Cart empty.",
+            "test_data": {
+                "expected_text": "Products"
+            }
+        },
+        {
+            "id": "TC-048",
+            "feature": "Dashboard",
+            "title": "Responsive Layout",
+            "type": "ui",
+            "priority": "P3",
+            "steps": [
+                "Login",
+                "Resize window"
+            ],
+            "expected_result": "Menu visible.",
+            "test_data": {
+                "expected_text": "Products"
+            }
+        }
+    ]
+}
