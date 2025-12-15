@@ -1,16 +1,25 @@
 import asyncio
+import io
+import json
 import logging
+import uuid
+import zipfile
 from pathlib import Path
 from typing import Any, Dict
+from typing import List
 
 from fastapi import Depends, FastAPI, File, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from playwright.async_api import async_playwright
+from pydantic import BaseModel
 
 from app.config import Settings
 from app.run_manager import run_manager, RunRecord
 from app.services.document_loader import read_text
 from app.services.llm_client import TestPlanExtractor
+from tools.agent_runner.reporting import ReportGenerator
+from tools.agent_runner.run import run_test_plan
 from tools.generate_playwright import render_spec
 
 logger = logging.getLogger("app")
@@ -33,6 +42,38 @@ app.mount("/ui", StaticFiles(directory=str(STATIC_DIR), html=True), name="static
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.post("/run_tests")
+async def run_tests_endpoint(
+        file: UploadFile = File(...),
+        url: str = Query("https://www.saucedemo.com", description="Target URL for the test"),
+):
+    """
+    Executes a Test Plan (uploaded JSON) using the Agent Runner.
+    Returns the execution results (Pass/Fail/Log).
+    """
+    try:
+        content = await file.read()
+        plan_data = json.loads(content)
+    except Exception as e:
+        return {"error": f"Invalid JSON file: {str(e)}"}
+
+    print(f"API: Running Tests against {url}")
+
+    # Execute Run (Headed for demo purposes)
+    results = await run_test_plan(
+        url=url,
+        test_plan=plan_data,
+        headed=True,
+        persist_session=False
+    )
+
+    return results
+
+
+class ReportRequest(BaseModel):
+    results: List[Dict[str, Any]]
 
 
 @app.post("/extract-tests")
@@ -72,6 +113,97 @@ async def extract_tests(
         "plan_path": str(plan_path),
         "latest_plan_path": str(out_dir / "latest_plan.json"),
     }
+
+
+@app.post("/generate_report")
+async def generate_report(
+        body: ReportRequest
+):
+    """
+    Generates an XLSX report from execution results.
+    Returns the XLSX file.
+    """
+    out_dir = Path("generated")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_filename = f"report_{uuid.uuid4().hex[:8]}.xlsx"
+    report_path = out_dir / report_filename
+
+    # Generate
+    generator = ReportGenerator(results=body.results)
+    generator.generate_xlsx(str(report_path))
+
+    return FileResponse(
+        path=str(report_path),
+        filename=report_filename,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+
+@app.post("/process_full_cycle")
+async def process_full_cycle(
+        file: UploadFile = File(...),
+        url: str = Query("https://www.saucedemo.com", description="Target URL for the test"),
+        debug: bool = Query(
+            False,
+            description="If true, return a ZIP containing the generated plan JSON, results JSON, and XLSX report.",
+        ),
+        settings: Settings = Depends(get_settings),
+):
+    """
+    Consolidated Workflow:
+    1. Extract Test Plan from Spec File (LLM)
+    2. Execute Test Plan (Agent)
+    3. Generate and Return XLSX Report
+    """
+    # 1. Extract
+    text = read_text(file)
+    logger.info("Received full-cycle request: name=%s chars=%s", file.filename, len(text))
+    extractor = TestPlanExtractor(settings)
+    plan = extractor.extract(text)
+
+    out_dir = Path("generated")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    slug_name = _slug(plan.document_title or 'plan') or 'plan'
+    cycle_id = uuid.uuid4().hex[:8]
+    plan_json = plan.model_dump_json(indent=2)
+    plan_path = out_dir / f"{slug_name}_{cycle_id}.json"
+    plan_path.write_text(plan_json)
+
+    # 2. Run
+    plan_data = plan.model_dump()
+    results = await run_test_plan(
+        url=url,
+        test_plan=plan_data,
+        headed=True,
+        persist_session=False,
+    )
+
+    # 3. Report
+    report_filename = f"report_{slug_name}_{cycle_id}.xlsx"
+    report_path = out_dir / report_filename
+
+    generator = ReportGenerator(results=results, plan_data=plan_data)
+    generator.generate_xlsx(str(report_path))
+
+    if debug:
+        zip_name = f"full_cycle_{slug_name}_{cycle_id}.zip"
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{slug_name}_{cycle_id}.json", plan_json)
+            zf.writestr(f"results_{cycle_id}.json", json.dumps(results, indent=2))
+            zf.write(str(report_path), arcname=report_filename)
+        zip_buf.seek(0)
+        return StreamingResponse(
+            zip_buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+        )
+
+    return FileResponse(
+        path=str(report_path),
+        filename=report_filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.post("/runs")

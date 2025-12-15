@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Any
 
 from fastapi import HTTPException
@@ -21,14 +22,41 @@ class TestPlanExtractor:
         self.client = OpenAI(api_key=settings.openai_api_key)
 
     def _call_llm(self, user_content: str) -> str:
-        response = self.client.chat.completions.create(
-            model=self.settings.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-        )
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
+        request = {
+            "model": self.settings.model,
+            "messages": messages,
+        }
+
+        try:
+            response = self.client.chat.completions.create(
+                **request,
+                response_format={"type": "json_object"},
+            )
+        except Exception:
+            response = self.client.chat.completions.create(**request)
+
         return response.choices[0].message.content or ""
+
+    @staticmethod
+    def _extract_json_text(raw: str) -> str:
+        raw = (raw or "").strip()
+        if not raw:
+            return raw
+
+        fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL | re.IGNORECASE)
+        if fence:
+            return fence.group(1).strip()
+
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return raw[start: end + 1].strip()
+
+        return raw
 
     def extract(self, text: str) -> TestPlanResponse:
         max_chars = getattr(self.settings, "max_chars", 120_000)
@@ -41,6 +69,7 @@ class TestPlanExtractor:
         user_prompt = build_user_prompt(chunks or [text])
 
         last_err: Any = None
+        raw: str = ""
         max_retries = getattr(self.settings, "max_retries", 2)
         for _ in range(max_retries + 1):
             try:
@@ -51,10 +80,14 @@ class TestPlanExtractor:
                     len(user_prompt),
                 )
                 raw = self._call_llm(user_prompt)
-                data = self._normalize_payload(json.loads(raw))
+                json_text = self._extract_json_text(raw)
+                data = self._normalize_payload(json.loads(json_text))
                 return TestPlanResponse(**data)
             except Exception as exc:
-                logger.exception("LLM attempt failed to return valid JSON")
+                logger.exception(
+                    "LLM attempt failed to return valid JSON (raw_prefix=%r)",
+                    (raw or "")[:200],
+                )
                 last_err = exc
         raise HTTPException(status_code=502, detail=f"LLM returned invalid JSON: {last_err}")
 

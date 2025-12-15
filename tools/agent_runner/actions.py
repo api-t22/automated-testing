@@ -1,16 +1,10 @@
-"""
-Minimal agent runner with a two-step loop:
-1) Extract page meaning (structured digest)
-2) Choose and execute an action like a human (dismiss popups first)
-
-Includes lightweight heuristics, validation, and retry/backoff.
-"""
 import argparse
 import asyncio
 import base64
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
@@ -21,16 +15,33 @@ from tools.agent_runner.page_model import collect_clickable_elements
 
 # Helpers
 def load_env(env_path: str = ".env") -> None:
-    if not os.path.exists(env_path):
+    """
+    Load environment variables from a dotenv file.
+
+    This runner is used both via CLI and via FastAPI; the process CWD can differ,
+    so we probe a few common locations instead of assuming `.env` is in CWD.
+    """
+    candidates = [
+        Path(env_path),
+        Path.cwd() / env_path,
+        Path(__file__).resolve().parent.parent.parent / env_path,  # repo root-ish
+        Path(__file__).resolve().parent.parent.parent / ".env",
+    ]
+    env_file = next((p for p in candidates if p.exists() and p.is_file()), None)
+    if not env_file:
         return
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            if k and v and k not in os.environ:
-                os.environ[k] = v
+
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip()
+        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+            v = v[1:-1]
+        if k and v and k not in os.environ:
+            os.environ[k] = v
 
 
 def trim(text: str, max_len: int) -> str:
@@ -80,7 +91,16 @@ def normalize_memory(memory: Optional[Dict[str, str]]) -> Dict[str, str]:
 def openai_client() -> OpenAI:
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
+        # Fall back to Settings (which can read env_file) then re-export into env.
+        try:
+            from app.config import Settings
+
+            key = Settings().openai_api_key
+        except Exception:
+            key = None
+    if not key:
         raise RuntimeError("OPENAI_API_KEY not set")
+    os.environ["OPENAI_API_KEY"] = key
     return OpenAI(api_key=key)
 
 
@@ -116,10 +136,13 @@ def digest_for_action(page_map: Dict[str, Any], limit: int = 40, goal_hint: str 
     for el in refs:
         ref = el.get("ref")
         text = (el.get("text") or "").lower()
+        aria = (el.get("aria") or "").lower()
+        dti = (el.get("dataTestId") or "").lower()
+        search_text = f"{text} {aria} {dti}"
         score = 0
 
         # Dynamic scoring based on goal matching
-        matches_goal = any(k in text for k in goal_keywords)
+        matches_goal = any(k in search_text for k in goal_keywords)
         if matches_goal:
             score += 60
             if debug:
@@ -147,7 +170,9 @@ def digest_for_action(page_map: Dict[str, Any], limit: int = 40, goal_hint: str 
             "role": el.get("role", ""),
             "bbox": el.get("bbox", {}),
             "why": why,
+            "why": why,
             "parent_ref": el.get("parentRef"),
+            "test_id": el.get("dataTestId"),
         }
                        ))
 
@@ -392,6 +417,9 @@ async def apply_action(page: Page, action: Dict[str, Any], elements: List[Dict[s
                         await click_with_fallback(page, child, hover_first=False)
             else:
                 await click_with_fallback(page, child, hover_first=False)
+
+        # Stability Wait: Allow UI animations/validations to settle after click
+        await page.wait_for_timeout(1000)
         return True
 
     # SELECT_OPTION ACTION: Handle dropdowns
@@ -399,12 +427,12 @@ async def apply_action(page: Page, action: Dict[str, Any], elements: List[Dict[s
         target = elements[primary] if primary is not None and 0 <= primary < len(elements) else None
         if not target:
             raise RuntimeError("No target for select_option action")
-        
+
         selector = target.get("selector")
         option_value = value or ""
-        
+
         print(f"DEBUG: Selecting option '{option_value}' in element ref {primary}")
-        
+
         try:
             if selector:
                 # Try selecting by label first (most common/human way), then value, then index
@@ -416,11 +444,13 @@ async def apply_action(page: Page, action: Dict[str, Any], elements: List[Dict[s
                     except Exception:
                         await page.locator(selector).select_option(index=int(option_value))
             else:
-                 raise RuntimeError("No selector for select element")
+                raise RuntimeError("No selector for select element")
         except Exception as e:
             print(f"DEBUG: Javascript fallback for select due to: {e}")
             # Fallback: force setting value via JS
-            await page.evaluate(f"(val) => {{ const el = document.querySelector('{selector}'); if(el) {{ el.value = val; el.dispatchEvent(new Event('change')); }} }}", option_value)
+            await page.evaluate(
+                f"(val) => {{ const el = document.querySelector('{selector}'); if(el) {{ el.value = val; el.dispatchEvent(new Event('change')); }} }}",
+                option_value)
         return True
 
     # TYPE ACTION: Fill input fields with text
@@ -453,6 +483,13 @@ async def apply_action(page: Page, action: Dict[str, Any], elements: List[Dict[s
                     raise RuntimeError("No selector for fallback type")
             except Exception:
                 raise RuntimeError(f"Failed to type into element: {e}")
+
+        # BLUR MECHANISM: Force validation event
+        try:
+            await page.evaluate("if (document.activeElement) document.activeElement.blur()")
+        except Exception:
+            pass
+
         return True
 
     # SOLVE_CAPTCHA ACTION: Solve simple text/math captchas
@@ -663,12 +700,32 @@ async def apply_action(page: Page, action: Dict[str, Any], elements: List[Dict[s
         locator = page.get_by_text(re.compile(value or "", re.IGNORECASE), exact=False)
         await locator.first.wait_for(state="visible", timeout=4000)
         return False
+
+    # GOTO ACTION: Direct navigation
+    if name == "goto":
+        url = value or ""
+        if not url.startswith("http"):
+            # Handle relative URLs if base URL is known (heuristic)
+            if not url.startswith("/"):
+                url = "/" + url
+            base = page.url.split("/")[2]  # Extract domain
+            protocol = page.url.split(":")[0]
+            url = f"{protocol}://{base}{url}"
+
+        print(f"DEBUG: Negotiating goto action to: {url}")
+        try:
+            await page.goto(url, timeout=15000)
+            await page.wait_for_load_state("networkidle", timeout=5000)
+        except Exception as e:
+            print(f"DEBUG: Goto failed: {e}")
+            return False
+        return True
+
     raise RuntimeError(f"Unknown action {name}")
 
 
 async def validate_step(page: Page, step: str, test_case: Dict[str, Any]) -> None:
     """Lightweight validator: looks for expected_result text and simple goal hints."""
-    visible_text = ""
     try:
         visible_text = await page.evaluate("() => document.body.innerText || ''")
     except Exception:

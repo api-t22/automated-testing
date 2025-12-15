@@ -74,6 +74,7 @@ def build_page_map(html: str, elements: List[Dict[str, Any]], url: str, title: s
             "position": {"x": bbox.get("x"), "y": bbox.get("y")},
             "bbox": bbox,
             "selector": el.get("selector", ""),
+            "dataTestId": el.get("dataTestId", ""),
             "parentRef": el.get("parentRef"),
         }
         refs.append(record)

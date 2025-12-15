@@ -5,8 +5,8 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from playwright.async_api import async_playwright
-from tools.agent_runner.reporting import ReportGenerator
 
+from app.config import Settings
 from tools.agent_runner.actions import (
     apply_action,
     auto_dismiss_popups,
@@ -15,9 +15,13 @@ from tools.agent_runner.actions import (
     load_env,
     openai_client,
 )
-from tools.agent_runner.agents.combined_agent import analyze_and_act
-from tools.agent_runner.agents.verifier import judge_completion
+from tools.agent_runner.agents.combined_agent import NavigatorAgent
+from tools.agent_runner.agents.observer_agent import ObserverAgent
+from tools.agent_runner.agents.summariser import SummariserAgent
+from tools.agent_runner.agents.verifier import VerifierAgent
+from tools.agent_runner.memory import SemanticMemory
 from tools.agent_runner.page_model import build_page_map, expand_nav_and_collect, collect_clickable_elements
+from tools.agent_runner.reporting import ReportGenerator
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model", default=os.environ.get("MODEL", "gpt-5-nano-2025-08-07"), help="OpenAI model")
     parser.add_argument("--headed", action="store_true", help="Run Playwright headed")
-    parser.add_argument("--max-steps", type=int, default=15, help="Max agent steps before giving up")
+    parser.add_argument("--max-steps", type=int, default=100, help="Max agent steps before giving up")
     parser.add_argument("plan_pos", nargs="?", help="Plan file (positional)")
     parser.add_argument("--plan", help="Optional path or JSON string containing acceptance criteria")
     parser.add_argument("--scripted", action="store_true", help="Use simple heuristic navigation instead of the LLM")
@@ -86,13 +90,13 @@ def extract_all_stories(plan: dict) -> list:
             us_id = us.get("id")
             for related_id in us.get("related_test_ids", []):
                 tc_map[related_id] = us_id
-                
+
         stories = []
         for tc in test_cases:
             tc_id = tc.get("id", "")
             # Inherit US ID from mapping if not explicit
             us_id = tc.get("user_story_id") or tc_map.get(tc_id, "")
-            
+
             # Convert test_case to story format
             story = {
                 "id": tc_id,
@@ -225,75 +229,6 @@ def choose_scripted_action(
     return None
 
 
-async def run_story_direct(page, story: dict, client=None, model: str = "gpt-5-nano-2025-08-07") -> bool:
-    """
-    Fast direct navigation based on story keywords.
-    """
-    story_id = story.get("id", "Unknown")
-    story_title = story.get("title", "")
-    criteria = story.get("acceptance_criteria", [])
-    criteria_text = " ".join(criteria).lower()
-
-    print(f"\n=== DIRECT MODE: {story_id} - {story_title} ===")
-
-    # Click menu button if present
-    menu_selectors = ["button.menu-btn", "button[aria-label*='menu' i]", ".hamburger"]
-    for sel in menu_selectors:
-        try:
-            menu_btn = page.locator(sel).first
-            if await menu_btn.is_visible(timeout=500):
-                await menu_btn.click(timeout=1000)
-                await page.wait_for_timeout(500)
-                break
-        except Exception:
-            continue
-
-    # Determine navigation path based on story keywords
-    nav_targets = []
-    if "client" in criteria_text:
-        nav_targets = [("About Us", None), ("Our Clients", "client")]
-    elif "work" in criteria_text or "portfolio" in criteria_text:
-        nav_targets = [("Work", "work")]
-    elif "insight" in criteria_text or "blog" in criteria_text:
-        nav_targets = [("Insights", "insight")]
-    elif "people" in criteria_text or "team" in criteria_text:
-        nav_targets = [("About Us", None), ("Our People", "people")]
-    elif "contact" in criteria_text or "form" in criteria_text:
-        nav_targets = [("Let's talk", None)]  # Form is on homepage, just scroll
-    elif "social" in criteria_text:
-        nav_targets = []  # Social links are always visible
-
-    # Execute navigation
-    for target_text, url_check in nav_targets:
-        print(f"Clicking: '{target_text}'...")
-        try:
-            link = page.get_by_text(target_text, exact=False).first
-            await link.click(timeout=3000)
-            await page.wait_for_timeout(1000)
-        except Exception as e:
-            print(f"Failed to click {target_text}: {e}")
-            return False
-
-    # Verify based on story type
-    final_url = page.url.lower()
-    visible_text = ""
-    try:
-        visible_text = (await page.evaluate("() => document.body.innerText || ''")).lower()
-    except Exception:
-        pass
-
-    success, reason = await judge_completion(
-        story,
-        final_url,
-        visible_text,
-        client=client,
-        model=model,
-    )
-
-    print(f"Result: {'PASS' if success else 'FAIL'} ({reason})")
-    return success
-
-
 # EXPORTED API
 async def run_test_plan(
         url: str,
@@ -303,12 +238,15 @@ async def run_test_plan(
         persist_session: bool = True,
         debug: bool = False,
         thorough: bool = False,
-        hybrid: bool = True
+        hybrid: bool = True,
+        max_steps: int = 100
 ) -> List[Dict[str, Any]]:
     """
     Run a test plan against a URL using the robust hybrid agent flow.
     """
+
     load_env()
+    settings = Settings()
     client = openai_client()
 
     # Flexible input parsing
@@ -324,6 +262,8 @@ async def run_test_plan(
 
     print(f"\n{'=' * 60}")
     print(f"RUNNING {len(stories)} TESTS (HYBRID MODE)")
+    print(f"RUNNING {len(stories)} TESTS (HYBRID MODE)")
+    print(f"Models: Complex={settings.model_complex}, Simple={settings.model_simple}")
     print(f"{'=' * 60}")
 
     results = []
@@ -358,24 +298,68 @@ async def run_test_plan(
                 # Build goal
                 goal = f"{story_title}. {story_desc}"
                 if criteria:
-                    goal += " Acceptance criteria: " + "; ".join(criteria)
+                    goal += "Acceptance criteria: " + "; ".join(criteria)
                 if test_data:
-                    goal += f" USE THESE EXACT VALUES: {json.dumps(test_data)}"
+                    goal += f"USE THESE EXACT VALUES: {json.dumps(test_data)}"
+
+                # INJECT TEST CONTEXT
+                test_type = story.get("type", "functional")
+                goal += f"\nTEST CONTEXT: This is a '{test_type}' test."
+                if test_type == "negative":
+                    goal += "(Expect failure/error messages. If error appears, goal is COMPLETE.)"
 
                 # Capture initial state
                 await auto_dismiss_popups(page)
 
                 # Execution Loop
-                max_steps = max(len(criteria) * 5, 25)
+                # Use provided max_steps (default 100) as baseline, but ensure at least 5 steps per criteria item
+                limit = max(max_steps, len(criteria) * 5)
                 success = False
                 error_msg = None
+                # Initialize Observer and Memory for this story
+                # Use Complex Model for critical Observation/Judgement
+                observer = ObserverAgent(client, settings.model_complex)
+                # Initialize Navigator (NavigatorAgent) with Complex Model
+                navigator = NavigatorAgent(client, settings.model_complex)
+                verifier = VerifierAgent(client, settings.model_complex)
+                memory = SemanticMemory()
+
                 steps_taken = 0
                 action_history = []
                 primary_ref = None
+                loop_counter = 0
+                failure_refs: dict[int, int] = {}
+                observer_feedback = None
 
-                for step in range(max_steps):
+                for step in range(limit):
                     steps_taken = step + 1
                     state = await capture_state(page)
+
+                    # Observer (Smart Judge) Check
+                    # It validates if the goal is met OR if a bug occurred (e.g. Test expects error, App allows success)
+                    obs_result = await observer.observe(
+                        goal,
+                        memory.get_recent_history(),
+                        state.get("pageUrl", ""),
+                        state.get("visibleText", "")
+                    )
+
+                    # Capture Feedback for NEXT step
+                    if obs_result.get("feedback"):
+                        observer_feedback = obs_result.get("feedback")
+
+                    if debug:
+                        print(f"Observer Verdict: {obs_result}")
+
+                    if obs_result["status"] == "success":
+                        print(f"Observer declared SUCCESS: {obs_result.get('reason')}")
+                        success = True
+                        break
+                    elif obs_result["status"] == "failed":
+                        print(f"Observer declared FAILURE: {obs_result.get('reason')}")
+                        success = False
+                        error_msg = obs_result.get("reason", "Observer declared failure")
+                        break
 
                     # Clickable collection strategy
                     if thorough:
@@ -400,50 +384,106 @@ async def run_test_plan(
 
                     # Augment goal with history
                     current_goal = goal
-                    
-                    # Add Step Context
-                    if criteria and len(criteria) > 0:
-                         # Heuristic: map agent step to story step roughly
-                         # This isn't perfect but gives a sense of progress
-                         progress_idx = min(step, len(criteria) - 1)
-                         current_step_desc = criteria[progress_idx]
-                         current_goal += f"\n\nFOCUS: You are likely on step {progress_idx + 1}/{len(criteria)}: '{current_step_desc}'."
+                    current_goal += "\nALWAYS re-check the page before acting: if expected URL/text is already present, declare SUCCESS instead of repeating clicks."
+
+                    # Steer the LLM away from refs that have already failed multiple times
+                    blocked_refs = [str(ref) for ref, count in failure_refs.items() if count >= 2]
+                    if blocked_refs:
+                        current_goal += f"\n\nAVOID these refs (failed repeatedly): {', '.join(blocked_refs)}."
 
                     if action_history:
                         history_str = "\n".join(action_history[-5:])
                         current_goal += f"\n\nRECENT ACTIONS (Do not repeat [SUCCESS] actions):\n{history_str}"
-                    
+
                     if primary_ref is None and action_history and "[FAILED]" in action_history[-1]:
                         current_goal += "\n\nWARNING: Last action failed due to missing element. RE-EXAMINE the page carefully."
 
+                    # Inject Observer Feedback (Coaching)
+                    if observer_feedback:
+                        current_goal += f"\n\n[OBSERVER FEEDBACK/COACHING]: {observer_feedback}"
+                        # Clear feedback after using it once so it doesn't stick forever if resolved
+                        observer_feedback = None
+
                     # LLM Analysis
-                    intent = await analyze_and_act(client, model, current_goal, digest, state)
+                    # Use Navigator Agent for Action Decision
+                    intent = await navigator.analyze_and_act(current_goal, digest, state)
                     action = intent.get("action", "done")
+                    status = intent.get("status", "running")
                     primary_ref = intent.get("primary_ref")
                     value = intent.get("value", "")
 
+                    # DYNAMIC COMPLETION CHECK
+                    if status == "success":
+                        print(f"Agent declared SUCCESS status. Stopping.")
+                        action_history.append(f"Step {step + 1}: Agent declared SUCCESS.")
+                        success = True
+                        break
+                    elif status == "failed":
+                        print(f"Agent declared FAILED status. Stopping.")
+                        action_history.append(f"Step {step + 1}: Agent declared FAILURE.")
+                        success = False
+                        error_msg = "Agent determined goal is impossible or failed."
+                        break
+                    elif action == "done" and status == "running":
+                        print("  Agent said 'done' (legacy). Stopping.")
+                        success = True
+                        break
+
                     # Record intention
                     action_desc = f"Step {step + 1}: {action} {value if value else ''} (Ref {primary_ref})"
+
+                    # STATIONARY LOOP CHECK
+                    is_looping = False
+                    if len(action_history) >= 3:
+                        last_3 = action_history[-3:]
+                        # Extract core action string (ignoring Step X prefix)
+                        current_core = f"{action} {value if value else ''} (Ref {primary_ref})"
+
+                        # Check if all last 3 contain this exact action
+                        # We use a loose check because previous history entries have [SUCCESS]/[FAILED] suffixes
+                        match_count = 0
+                        for hist in last_3:
+                            if current_core in hist:
+                                match_count += 1
+
+                        if match_count >= 3:
+                            print(
+                                f"WARNING: Detected stationary loop (repeated action '{current_core}' 3 times). Aborting step.")
+                            action_history.append(f"Step {step + 1}: [FAILED] Loop detected. Aborted.")
+                            if primary_ref is not None:
+                                failure_refs[primary_ref] = failure_refs.get(primary_ref, 0) + 1
+
+                            # HARD STOP LOGIC
+                            if loop_counter >= 5:
+                                print("CRITICAL: Infinite Loop Spam Detected. Hard Stopping Test.")
+                                success = False
+                                error_msg = "Infinite Loop Detected"
+                                break
+                            loop_counter += 1
+                            continue  # Skip waiting / applying
+                        else:
+                            loop_counter = 0  # Reset if valid action
+                    else:
+                        loop_counter = 0  # Reset if not enough history to check for loop
+
                     action_history.append(action_desc)
 
                     if debug:
-                        print(f"  Step {step + 1}: {action} ref={primary_ref} - {intent.get('notes', '')[:50]}...")
+                        print(f"Step {step + 1}: {action} ref={primary_ref} - {intent.get('notes', '')[:50]}...")
 
                     if action == "done":
-                        print("  LLM says goal complete.")
+                        print("LLM says goal complete.")
                         # Verify logic
                         page_text = await page.inner_text("body")
                         final_url = page.url
 
-                        success, reason = await judge_completion(
+                        success, reason = await verifier.verify(
                             story,
                             final_url,
-                            page_text.lower(),
-                            client=client,
-                            model=model,
+                            page_text.lower()
                         )
                         if debug or not success:
-                            print(f"  Verification: {reason}")
+                            print(f"Verification: {reason}")
 
                         break
 
@@ -452,10 +492,10 @@ async def run_test_plan(
                     max_retries = 3
 
                     for attempt in range(max_retries):
-                        if primary_ref is None and action != "done":
-                             print("  Action missing primary_ref, skipping retry and re-digesting...")
-                             action_success = False
-                             break
+                        if primary_ref is None and action not in ["done", "goto"]:
+                            print("Action missing primary_ref, skipping retry and re-digesting...")
+                            action_success = False
+                            break
 
                         try:
                             if await apply_action(page, intent, expanded_clickables):
@@ -475,19 +515,25 @@ async def run_test_plan(
                                 except:
                                     pass
                             else:
-                                if debug: print(f"  Action error (attempt {attempt + 1}): {e}. Retrying...")
+                                if debug: print(f"Action error (attempt {attempt + 1}): {e}. Retrying...")
                                 await asyncio.sleep(attempt + 1)
 
                     if action_success:
                         action_history[-1] += " [SUCCESS]"
+                        # Log to Semantic Memory
+                        memory.add_state(
+                            step=step + 1,
+                            url=page.url,
+                            action=f"{action} {primary_ref if primary_ref else ''} ({intent.get('notes', '')})",
+                        )
                     else:
                         action_history[-1] += " [FAILED]"
+                        if primary_ref is not None:
+                            failure_refs[primary_ref] = failure_refs.get(primary_ref, 0) + 1
                         if primary_ref is None:
-                             # If we failed due to missing ref, simply continue to next step (re-digest)
-                             # Do NOT continue the loop here as it would skip the rest of the logic
-                             pass
+                            pass
                         else:
-                             continue
+                            continue
 
                     await asyncio.sleep(0.5)
 
@@ -495,6 +541,45 @@ async def run_test_plan(
                     if not error_msg:
                         error_msg = "Max steps reached"
                     print(f"  Goal failed ({error_msg})")
+
+                    # INVESTIGATION MODE
+                    print(f"[INVESTIGATION] Entering Investigation Mode (5 steps) to diagnose: {error_msg}")
+                    inv_goal = f"TEST FAILED: {error_msg}. Your job is to INVESTIGATE THE FAILURE. Do NOT retry the failing action blindly. You have 5 steps to explore the app (e.g. check Cart, History, Profile) or try alternative navigation to confirm if the bug is persistent or page-specific. Report findings."
+
+                    inv_findings = []
+                    # Use COMPLEX model for Investigation (needs smarts to explore)
+                    inv_observer = ObserverAgent(client, settings.model_complex)
+                    # Use Navigator for Investigation actions
+                    inv_navigator = NavigatorAgent(client, settings.model_complex)
+
+                    for inv_step in range(5):
+                        state = await capture_state(page)
+
+                        # Use COMPLEX model to analyze investigation step
+                        digest_inv = digest_for_action(
+                            build_page_map(state.get("rawHtml", ""), await collect_clickable_elements(page),
+                                           state.get("pageUrl", ""), state.get("pageTitle", "")),
+                            limit=80, goal_hint="Investigate failure"
+                        )
+
+                        inv_intent = await inv_navigator.analyze_and_act(inv_goal, digest_inv, state)
+                        inv_action = inv_intent.get("action", "done")
+                        inv_note = inv_intent.get("notes", "")
+
+                        print(f"[Inv Step {inv_step + 1}] {inv_action} - {inv_note}")
+                        inv_findings.append(f"{inv_action} - {inv_note}")
+
+                        if inv_action == "done":
+                            break
+
+                        await apply_action(page, inv_intent, await collect_clickable_elements(page))
+                        await asyncio.sleep(1)
+
+                    if inv_findings:
+                        # SUMMARISE FINDINGS (Simple Model)
+                        summarizer = SummariserAgent(client, settings.model_simple)
+                        narrative = await summarizer.summarize_investigation(inv_findings, error_msg)
+                        error_msg += f" || INVESTIGATION FINDINGS: {narrative}"
 
                 result = {
                     "id": story_id,
@@ -527,12 +612,14 @@ async def run_test_plan(
                     for res in group:
                         status = res.get("status")
                         icon = "[PASS]" if status == "PASS" else "[FAIL]"
-                        print(f"  {icon} {res.get('id')}: {res.get('title')} - {status}")
+                        error = f" ({res.get('error')})" if status == "FAIL" and res.get('error') is not None else ""
+                        print(f"  {icon} {res.get('id')}: {res.get('title')} - {status}{error}")
                 else:
                     for res in group:
                         status = res.get("status")
                         icon = "[PASS]" if status == "PASS" else "[FAIL]"
-                        print(f"{icon} {res.get('id')}: {res.get('title')} - {status}")
+                        error = f" ({res.get('error')})" if status == "FAIL" and res.get('error') is not None else ""
+                        print(f"{icon} {res.get('id')}: {res.get('title')} - {status}{error}")
 
                 passed += sum(1 for r in group if r["status"] == "PASS")
 
@@ -558,7 +645,8 @@ async def main_async():
         persist_session=not args.no_persist,
         debug=args.debug,
         thorough=args.thorough,
-        hybrid=args.hybrid
+        hybrid=args.hybrid,
+        max_steps=args.max_steps
     )
 
     if args.report:
@@ -569,7 +657,7 @@ async def main_async():
                 plan_data = load_plan_arg(args.plan)
             elif args.plan_pos:
                 plan_data = load_plan_arg(args.plan_pos)
-            
+
             generator = ReportGenerator(results, plan_data)
 
             if args.report.endswith(".md"):

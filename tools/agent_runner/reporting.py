@@ -1,12 +1,14 @@
-from typing import List, Dict, Any
 from datetime import datetime
+from typing import List, Dict, Any
+
 from xlsxwriter.utility import xl_range
+
 
 class ReportGenerator:
     """
     Generates structured QA reports with metrics and detailed issue tables.
     """
-    
+
     SEVERITY_MAP = {
         "P0": "Blocking Issue/Crash",
         "P1": "Major Impact on Functionality",
@@ -37,10 +39,10 @@ class ReportGenerator:
         # Map failures to severity
         for res in self.failed_tests:
             # Look up priority from plan data if available, or default
-            prio = res.get("priority", "P1") 
+            prio = res.get("priority", "P1")
             severity = self.SEVERITY_MAP.get(prio, "Major Impact on Functionality")
             metrics[severity] = metrics.get(severity, 0) + 1
-            
+
         return metrics
 
     def generate_markdown(self) -> str:
@@ -49,7 +51,7 @@ class ReportGenerator:
         """
         metrics = self.generate_metrics()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         md = []
         md.append(f"# QA Test Report")
         md.append(f"**Date:** {now}\n")
@@ -82,11 +84,11 @@ class ReportGenerator:
                 severity = self.SEVERITY_MAP.get(prio, "Major")
                 # Description comes from Title
                 desc = res.get("title", "")
-                
+
                 # Steps (Formatted as list)
                 steps_list = res.get("steps", [])
                 if isinstance(steps_list, list):
-                    steps_md = "<br>".join([f"{i+1}. {s}" for i, s in enumerate(steps_list)])
+                    steps_md = "<br>".join([f"{i + 1}. {s}" for i, s in enumerate(steps_list)])
                 else:
                     steps_md = str(steps_list)
 
@@ -94,7 +96,7 @@ class ReportGenerator:
                 # Actual comes from error message usually
                 actual = res.get("error", "Unknown Error")
                 status = "Open"
-                
+
                 row = [
                     issue_id,
                     severity,
@@ -107,7 +109,7 @@ class ReportGenerator:
                 # Escape pipes
                 row = [str(c).replace("|", "\\|") for c in row]
                 md.append("| " + " | ".join(row) + " |")
-        
+
         return "\n".join(md)
 
     def generate_xlsx(self, filename: str):
@@ -115,7 +117,7 @@ class ReportGenerator:
         Generate a multi-tab Excel report with charts.
         """
         import pandas as pd
-        
+
         # 1. Prepare DataFrames
         metrics = self.generate_metrics()
         summary_rows = [
@@ -134,7 +136,7 @@ class ReportGenerator:
             severity = self.SEVERITY_MAP.get(prio, "Major Impact")
             steps = res.get("steps", [])
             steps_str = "\\n".join(steps) if isinstance(steps, list) else str(steps)
-            
+
             issues_data.append({
                 "Issue ID": res.get("id"),
                 "Severity": severity,
@@ -145,9 +147,9 @@ class ReportGenerator:
                 "Status": "Open"
             })
         issues_df = pd.DataFrame(issues_data)
-        
+
         results_df = pd.DataFrame(self.results)
-        
+
         stories_data = []
         stories = self.plan_data.get("user_stories", [])
         for s in stories:
@@ -167,7 +169,7 @@ class ReportGenerator:
             results_df.to_excel(writer, sheet_name='All Test Results', index=False)
             if not stories_df.empty:
                 stories_df.to_excel(writer, sheet_name='User Stories', index=False)
-                
+
             # 3. Add Charts
             # 3. Define Formats
             workbook = writer.book
@@ -205,7 +207,7 @@ class ReportGenerator:
                 "P2": workbook.add_format({'bg_color': '#FFD966', 'font_color': '#000000', 'border': 1}),
                 "P3": workbook.add_format({'bg_color': '#93C47D', 'font_color': '#000000', 'border': 1}),
             }
-            
+
             # Helper to apply format to sheet
             def format_sheet(sheet_name, df):
                 if sheet_name not in writer.sheets: return
@@ -213,22 +215,22 @@ class ReportGenerator:
                 # Apply header format
                 for col_num, value in enumerate(df.columns.values):
                     ws.write(0, col_num, value, header_fmt)
-                
+
                 # Apply Column Widths (Approx)
-                ws.set_column(0, len(df.columns) - 1, 20, cell_fmt) # Default width 20 + wrap
-                
+                ws.set_column(0, len(df.columns) - 1, 20, cell_fmt)  # Default width 20 + wrap
+
                 # Specific fine tuning
                 if sheet_name == 'Dashboard':
                     ws.set_column('A:A', 30, cell_fmt)
                     ws.set_column('B:B', 15, cell_fmt)
                 elif sheet_name == 'Issues List':
-                    ws.set_column('A:B', 15, cell_fmt) # ID, Severity
-                    ws.set_column('C:C', 40, cell_fmt) # Description
-                    ws.set_column('D:F', 30, cell_fmt) # Steps, Exp, Act
+                    ws.set_column('A:B', 15, cell_fmt)  # ID, Severity
+                    ws.set_column('C:C', 40, cell_fmt)  # Description
+                    ws.set_column('D:F', 30, cell_fmt)  # Steps, Exp, Act
                 elif sheet_name == 'User Stories':
                     ws.set_column('A:A', 15, cell_fmt)
-                    ws.set_column('B:C', 40, cell_fmt) # Title, Goal
-                    ws.set_column('D:D', 30, cell_fmt) # Covered By
+                    ws.set_column('B:C', 40, cell_fmt)  # Title, Goal
+                    ws.set_column('D:D', 30, cell_fmt)  # Covered By
 
             # 4. Apply Formatting
             format_sheet('Dashboard', summary_df)
@@ -287,16 +289,16 @@ class ReportGenerator:
 
             # 5. Add Charts (Dashboard)
             worksheet = writer.sheets['Dashboard']
-            
+
             # Create Pie Chart for Pass/Fail
             chart = workbook.add_chart({'type': 'pie'})
             chart.add_series({
                 'name': 'Pass/Fail Ratio',
                 'categories': '=Dashboard!$A$6:$A$7',
-                'values':     '=Dashboard!$B$6:$B$7',
+                'values': '=Dashboard!$B$6:$B$7',
                 'points': [
-                    {'fill': {'color': '#10B981'}}, # Green for Pass
-                    {'fill': {'color': '#EF4444'}}, # Red for Fail
+                    {'fill': {'color': '#10B981'}},  # Green for Pass
+                    {'fill': {'color': '#EF4444'}},  # Red for Fail
                 ],
             })
             chart.set_title({'name': 'Test Execution Status'})
@@ -307,8 +309,8 @@ class ReportGenerator:
             severity_chart.add_series({
                 'name': 'Severity',
                 'categories': '=Dashboard!$A$2:$A$5',
-                'values':     '=Dashboard!$B$2:$B$5',
-                'fill':       {'color': '#F59E0B'} 
+                'values': '=Dashboard!$B$2:$B$5',
+                'fill': {'color': '#F59E0B'}
             })
             severity_chart.set_title({'name': 'Defect Severity Distribution'})
             worksheet.insert_chart('D18', severity_chart)

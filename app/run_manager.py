@@ -1,4 +1,5 @@
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -45,13 +46,13 @@ class RunManager:
         async with self._lock:
             return self._runs.get(run_id)
 
-    async def start_run(self, command: List[str]) -> RunRecord:
+    async def start_run(self, command: List[str], env: Optional[Dict[str, str]] = None) -> RunRecord:
         run_id = str(uuid.uuid4())
         record = RunRecord(id=run_id, status="pending", command=command)
         async with self._lock:
             self._runs[run_id] = record
 
-        asyncio.create_task(self._execute(run_id, command))
+        asyncio.create_task(self._execute(run_id, command, env=env))
         return record
 
     async def _append_event(self, run_id: str, event_type: str, message: str) -> None:
@@ -75,13 +76,20 @@ class RunManager:
                 record.finished_at = now_iso()
             record.error = error
 
-    async def _execute(self, run_id: str, command: List[str]) -> None:
+    async def _execute(self, run_id: str, command: List[str], env: Optional[Dict[str, str]] = None) -> None:
         await self._update_status(run_id, "running")
+
+        # Merge current env with provided env
+        exec_env = os.environ.copy()
+        if env:
+            exec_env.update(env)
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=exec_env
             )
         except FileNotFoundError as exc:
             await self._append_event(run_id, "error", f"Command not found: {exc}")
